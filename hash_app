@@ -1,0 +1,8 @@
+#!/bin/sh
+# launcher so the program can be started as: ./hash_app 5 20
+# it compiles HashApp.java first if there is no HashApp.class yet
+DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ ! -f "$DIR/HashApp.class" ]; then
+    javac -d "$DIR" "$DIR/HashApp.java" || exit 1
+fi
+java -cp "$DIR" HashApp "$@"
