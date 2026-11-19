@@ -1,15 +1,21 @@
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Scanner;
 
 // hash_app - simple hash bucket system that stores strings in files
 // usage: hash_app <n> <s>
 //   n = number of buckets (files 1.txt ... n.txt)
-//   s = max size of one bucket file
+//   s = max number of characters in one bucket file
+//
+// Overflow: when a bucket file is full we make a new file for the same bucket:
+//   3.txt -> 3_1.txt -> 3_2.txt -> ...
+// The next file in the chain is found by its name, so nothing else is stored in the files.
 public class HashApp {
 
-    // FNV-1a 32 bit hash
+    // FNV-1a 32 bit hashgit add HashApp.java
     static long fnv1a(String text) {
         long h = 2166136261L;                       // starting value (offset basis)
         byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
@@ -25,10 +31,48 @@ public class HashApp {
         return (int) (fnv1a(text) % n) + 1;
     }
 
-    // add the text to the end of its bucket file
+    // name of a file in the chain of a bucket
+    // number 0 = main file (3.txt), number 1 = first overflow file (3_1.txt), ...
+    static String chainName(int bucket, int number) {
+        if (number == 0) {
+            return bucket + ".txt";
+        }
+        return bucket + "_" + number + ".txt";
+    }
+
+    // go through the chain and return the number of the LAST file that exists
+    static int findLastFile(int bucket) {
+        int number = 0;
+        while (new File(chainName(bucket, number + 1)).exists()) {
+            number++;
+        }
+        return number;
+    }
+
+    // how many characters are in the file (0 if the file does not exist yet)
+    static int fileLength(String filename) throws IOException {
+        File file = new File(filename);
+        if (!file.exists()) {
+            return 0;
+        }
+        return Files.readString(file.toPath(), StandardCharsets.UTF_8).length();
+    }
+
+    // add the text to the last file of its bucket, or to a new overflow file
     static String saveString(String text, int n, int s) throws IOException {
-        String filename = getBucket(text, n) + ".txt";
-        try (FileWriter writer = new FileWriter(filename, true)) {
+        int bucket = getBucket(text, n);
+        int last = findLastFile(bucket);
+        String filename = chainName(bucket, last);
+        int current = fileLength(filename);
+
+        // if the text does not fit, make a new overflow file
+        // (if the file is empty we write anyway, so a very long string cannot get stuck)
+        if (current > 0 && current + text.length() > s) {
+            last++;
+            filename = chainName(bucket, last);
+        }
+
+        try (FileWriter writer = new FileWriter(filename, true)) {   // true = append
             writer.write(text);
         }
         return filename;
@@ -48,8 +92,8 @@ public class HashApp {
             System.out.println("n and s must be numbers");
             return;
         }
-        if (n < 1) {
-            System.out.println("n must be at least 1");
+        if (n < 1 || s < 1) {
+            System.out.println("n and s must be at least 1");
             return;
         }
 
@@ -58,7 +102,7 @@ public class HashApp {
         while (true) {
             System.out.print("Please enter the string: ");
             if (!scanner.hasNextLine()) {
-                break;
+                break;                              // end of input
             }
             String text = scanner.nextLine();
             try {
