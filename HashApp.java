@@ -15,7 +15,7 @@ import java.util.Scanner;
 // The next file in the chain is found by its name, so nothing else is stored in the files.
 public class HashApp {
 
-    // FNV-1a 32 bit hashgit add HashApp.java
+    // FNV-1a 32 bit hash
     static long fnv1a(String text) {
         long h = 2166136261L;                       // starting value (offset basis)
         byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
@@ -98,18 +98,23 @@ public class HashApp {
         }
 
         // ask for strings until the user presses Ctrl+C
-        Scanner scanner = new Scanner(System.in);
-        while (true) {
-            System.out.print("Please enter the string: ");
-            if (!scanner.hasNextLine()) {
-                break;                              // end of input
-            }
-            String text = scanner.nextLine();
-            try {
-                String filename = saveString(text, n, s);
-                System.out.println(text + " added to " + filename);
-            } catch (IOException e) {
-                System.out.println("Could not write to file: " + e.getMessage());
+        // the scanner is closed automatically at the end of the try block
+        try (Scanner scanner = new Scanner(System.in)) {
+            while (true) {
+                System.out.print("Please enter the string: ");
+                if (!scanner.hasNextLine()) {
+                    break;                              // end of input
+                }
+                String text = scanner.nextLine();
+                if (text.isEmpty()) {
+                    continue;                           // ignore empty lines
+                }
+                try {
+                    String filename = saveString(text, n, s);
+                    System.out.println(text + " added to " + filename);
+                } catch (IOException e) {
+                    System.out.println("Could not write to file: " + e.getMessage());
+                }
             }
         }
     }
